@@ -4,7 +4,8 @@ const CONFIG = {
     SHEET_ID: '0',
     MAP_CENTER: [20.5937, 78.9629], // India center
     MAP_ZOOM: 5,
-    API_ENDPOINT: 'https://docs.google.com/spreadsheets/d/{id}/export?format=csv&gid={gid}'
+    API_ENDPOINT: 'https://docs.google.com/spreadsheets/d/{id}/export?format=csv&gid={gid}',
+    CESIUM_ION_TOKEN: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2MzUzYWI5NS1kMDI1LTQxNDQtODQxYS04YTU4OWEzODhkNTAiLCJpZCI6MjE4NzEsInNjb3BlcyI6WyJhc3IiLCJnYzp3ZWIiLCJnYzp3ZWJfcHJpdmF0ZSIsImJhc2ljIl0sImlhdCI6MTY0NzcyOTY4NX0.9UHYxJXLyKJZJf_0o2tWvvJRt5f62eYCQV3DLu_QMcA'
 };
 
 // State management
@@ -19,7 +20,11 @@ const state = {
         opco: '',
         technology: ''
     },
-    baseLayers: {}
+    baseLayers: {},
+    mapType: '2d',
+    cesiumViewer: null,
+    cesiumEntities: [],
+    is3DMode: false
 };
 
 // Initialize map
@@ -60,6 +65,121 @@ function initializeMap() {
     
     // Create marker layer
     state.markerLayer = L.featureGroup().addTo(state.map);
+}
+
+// Initialize Cesium 3D viewer
+function initializeCesiumViewer() {
+    try {
+        Cesium.Ion.defaultAccessToken = CONFIG.CESIUM_ION_TOKEN;
+        
+        state.cesiumViewer = new Cesium.Viewer('cesium-container', {
+            terrainProvider: Cesium.Ion.terrainProvider,
+            baseLayerPicker: true,
+            geocoder: false,
+            homeButton: true,
+            sceneModePicker: true,
+            selectionIndicator: true,
+            timeline: false,
+            animation: false,
+            fullscreenButton: true
+        });
+        
+        // Set initial view to India
+        state.cesiumViewer.camera.setView({
+            destination: Cesium.Cartesian3.fromDegrees(78.9629, 20.5937, 2500000),
+            orientation: {
+                heading: Cesium.Math.toRadians(0.0),
+                pitch: Cesium.Math.toRadians(-90.0),
+                roll: 0.0
+            }
+        });
+        
+        // Add OSM buildings layer
+        try {
+            state.cesiumViewer.scene.primitives.add(
+                Cesium.Cesium3DTileset.fromUrl(
+                    'https://tile.openstreetmap.se/data/buildings/tileset.json'
+                )
+            );
+        } catch (e) {
+            console.log('OSM buildings layer not available');
+        }
+        
+    } catch (error) {
+        console.error('Error initializing Cesium viewer:', error);
+    }
+}
+
+// Toggle between 2D and 3D maps
+function toggleMapType(mapType) {
+    state.mapType = mapType;
+    
+    if (mapType === '3d') {
+        // Switch to 3D
+        document.getElementById('map').style.display = 'none';
+        document.getElementById('cesium-container').style.display = 'block';
+        
+        if (!state.cesiumViewer) {
+            initializeCesiumViewer();
+        }
+        
+        // Add markers to Cesium viewer
+        addCesiumMarkers(state.filteredMarkers.length > 0 ? state.filteredMarkers : state.allMarkers);
+        state.is3DMode = true;
+    } else {
+        // Switch to 2D
+        document.getElementById('map').style.display = 'block';
+        document.getElementById('cesium-container').style.display = 'none';
+        state.is3DMode = false;
+        
+        // Ensure 2D map is visible
+        state.map.invalidateSize();
+        
+        // Re-fit bounds
+        if (state.filteredMarkers.length > 0) {
+            const group = L.featureGroup(state.filteredMarkers);
+            state.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+        } else if (state.allMarkers.length > 0) {
+            const group = L.featureGroup(state.allMarkers);
+            state.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+        }
+    }
+}
+
+// Add markers to Cesium viewer
+function addCesiumMarkers(markers) {
+    // Clear existing entities
+    state.cesiumEntities.forEach(entity => {
+        state.cesiumViewer.entities.remove(entity);
+    });
+    state.cesiumEntities = [];
+    
+    markers.forEach(marker => {
+        const data = marker.data;
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
+        
+        const entity = state.cesiumViewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(lng, lat, 0),
+            point: {
+                pixelSize: 10,
+                color: Cesium.Color.fromCssColorString(getColorByTechnology(data.technology)),
+                outlineColor: Cesium.Color.WHITE,
+                outlineWidth: 2
+            },
+            label: {
+                text: data.sitename || 'BTS Site',
+                font: '14px sans-serif',
+                showBackground: true,
+                backgroundColor: Cesium.Color.fromAlpha(Cesium.Color.BLACK, 0.7),
+                pixelOffset: new Cesium.Cartesian2(0, -20),
+                fillColor: Cesium.Color.WHITE
+            },
+            description: createPopupContent(data)
+        });
+        
+        state.cesiumEntities.push(entity);
+    });
 }
 
 // Fetch data from Google Sheets
@@ -261,18 +381,40 @@ function applyFilters() {
         return true;
     });
     
-    // Remove all markers from map
-    state.markerLayer.clearLayers();
-    
-    // Add only filtered markers back to map
-    state.filteredMarkers.forEach(marker => {
-        state.markerLayer.addLayer(marker);
-    });
-    
-    // Update bounds if markers exist
-    if (state.filteredMarkers.length > 0) {
-        const group = L.featureGroup(state.filteredMarkers);
-        state.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+    if (state.is3DMode) {
+        // Update Cesium markers
+        addCesiumMarkers(state.filteredMarkers);
+        
+        // Fly to filtered markers
+        if (state.filteredMarkers.length > 0) {
+            const bounds = state.filteredMarkers.map(m => ({
+                lat: parseFloat(m.data.latitude),
+                lng: parseFloat(m.data.longitude)
+            }));
+            
+            const center = {
+                lng: bounds.reduce((sum, b) => sum + b.lng, 0) / bounds.length,
+                lat: bounds.reduce((sum, b) => sum + b.lat, 0) / bounds.length
+            };
+            
+            state.cesiumViewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(center.lng, center.lat, 500000)
+            });
+        }
+    } else {
+        // Remove all markers from map
+        state.markerLayer.clearLayers();
+        
+        // Add only filtered markers back to map
+        state.filteredMarkers.forEach(marker => {
+            state.markerLayer.addLayer(marker);
+        });
+        
+        // Update bounds if markers exist
+        if (state.filteredMarkers.length > 0) {
+            const group = L.featureGroup(state.filteredMarkers);
+            state.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+        }
     }
     
     // Update counts
@@ -311,7 +453,13 @@ function handleSiteItemClick(element) {
     const lat = parseFloat(element.getAttribute('data-lat'));
     const lng = parseFloat(element.getAttribute('data-lng'));
     
-    state.map.setView([lat, lng], 15);
+    if (state.is3DMode) {
+        state.cesiumViewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(lng, lat, 50000)
+        });
+    } else {
+        state.map.setView([lat, lng], 15);
+    }
 }
 
 // Update counts
@@ -326,19 +474,39 @@ function resetFilters() {
     document.getElementById('techFilter').value = '';
     state.filters = { opco: '', technology: '' };
     
-    // Clear and rebuild all markers on map
-    state.markerLayer.clearLayers();
-    state.allMarkers.forEach(marker => {
-        state.markerLayer.addLayer(marker);
-    });
+    if (state.is3DMode) {
+        addCesiumMarkers(state.allMarkers);
+        
+        if (state.allMarkers.length > 0) {
+            const bounds = state.allMarkers.map(m => ({
+                lat: parseFloat(m.data.latitude),
+                lng: parseFloat(m.data.longitude)
+            }));
+            
+            const center = {
+                lng: bounds.reduce((sum, b) => sum + b.lng, 0) / bounds.length,
+                lat: bounds.reduce((sum, b) => sum + b.lat, 0) / bounds.length
+            };
+            
+            state.cesiumViewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(center.lng, center.lat, 2500000)
+            });
+        }
+    } else {
+        // Clear and rebuild all markers on map
+        state.markerLayer.clearLayers();
+        state.allMarkers.forEach(marker => {
+            state.markerLayer.addLayer(marker);
+        });
+        
+        // Reset bounds
+        if (state.allMarkers.length > 0) {
+            const group = L.featureGroup(state.allMarkers);
+            state.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+        }
+    }
     
     state.filteredMarkers = state.allMarkers;
-    
-    // Reset bounds
-    if (state.allMarkers.length > 0) {
-        const group = L.featureGroup(state.allMarkers);
-        state.map.fitBounds(group.getBounds(), { padding: [50, 50] });
-    }
     
     updateCounts();
     updateSiteList();
@@ -382,6 +550,9 @@ async function initializeApp() {
 document.getElementById('opcoFilter').addEventListener('change', applyFilters);
 document.getElementById('techFilter').addEventListener('change', applyFilters);
 document.getElementById('resetFilters').addEventListener('click', resetFilters);
+document.getElementById('mapTypeSelector').addEventListener('change', (e) => {
+    toggleMapType(e.target.value);
+});
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', initializeApp);
