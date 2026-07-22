@@ -1,0 +1,37 @@
+{
+  "name": "bts-map-dashboard",
+  "version": "1.0.0",
+  "description": "Base Transceiver Station (BTS) Map Dashboard - Interactive visualization of BTS sites with filtering",
+  "main": "app.js",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 8000",
+    "build": "echo \"No build step required - static files only\"",
+    "test": "echo \"No tests configured\""
+  },
+  "keywords": [
+    "bts",
+    "map",
+    "gis",
+    "leaflet",
+    "openstreetmap",
+    "opco",
+    "technology",
+    "dashboard",
+    "visualization"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/purushottamjaiswal/AAF_Site_June2026"
+  },
+  "bugs": {
+    "url": "https://github.com/purushottamjaiswal/AAF_Site_June2026/issues"
+  },
+  "homepage": "https://github.com/purushottamjaiswal/AAF_Site_June2026#readme"
+}
