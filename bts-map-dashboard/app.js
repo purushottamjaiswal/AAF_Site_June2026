@@ -18,20 +18,47 @@ const state = {
     filters: {
         opco: '',
         technology: ''
-    }
+    },
+    baseLayers: {}
 };
 
 // Initialize map
 function initializeMap() {
     state.map = L.map('map').setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
     
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Define base layers
+    const osmRoads = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
-    }).addTo(state.map);
+        maxZoom: 19,
+        name: 'Roads'
+    });
     
-    // Create marker cluster group
+    const osmSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles © Esri',
+        maxZoom: 19,
+        name: 'Satellite'
+    });
+    
+    const osmTerrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
+        maxZoom: 17,
+        name: 'Terrain'
+    });
+    
+    // Store base layers
+    state.baseLayers = {
+        'Roads': osmRoads,
+        'Satellite': osmSatellite,
+        'Terrain': osmTerrain
+    };
+    
+    // Add default layer
+    osmRoads.addTo(state.map);
+    
+    // Add layer control
+    L.control.layers(state.baseLayers, {}).addTo(state.map);
+    
+    // Create marker layer
     state.markerLayer = L.featureGroup().addTo(state.map);
 }
 
@@ -217,7 +244,7 @@ function populateFilters() {
     });
 }
 
-// Apply filters
+// Apply filters - completely hide non-matching markers
 function applyFilters() {
     const opco = document.getElementById('opcoFilter').value;
     const tech = document.getElementById('techFilter').value;
@@ -234,11 +261,19 @@ function applyFilters() {
         return true;
     });
     
-    // Update visibility
-    state.allMarkers.forEach(marker => {
-        const isVisible = state.filteredMarkers.includes(marker);
-        marker.setOpacity(isVisible ? 1 : 0.2);
+    // Remove all markers from map
+    state.markerLayer.clearLayers();
+    
+    // Add only filtered markers back to map
+    state.filteredMarkers.forEach(marker => {
+        state.markerLayer.addLayer(marker);
     });
+    
+    // Update bounds if markers exist
+    if (state.filteredMarkers.length > 0) {
+        const group = L.featureGroup(state.filteredMarkers);
+        state.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+    }
     
     // Update counts
     updateCounts();
@@ -291,8 +326,19 @@ function resetFilters() {
     document.getElementById('techFilter').value = '';
     state.filters = { opco: '', technology: '' };
     
-    state.allMarkers.forEach(marker => marker.setOpacity(1));
+    // Clear and rebuild all markers on map
+    state.markerLayer.clearLayers();
+    state.allMarkers.forEach(marker => {
+        state.markerLayer.addLayer(marker);
+    });
+    
     state.filteredMarkers = state.allMarkers;
+    
+    // Reset bounds
+    if (state.allMarkers.length > 0) {
+        const group = L.featureGroup(state.allMarkers);
+        state.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+    }
     
     updateCounts();
     updateSiteList();
