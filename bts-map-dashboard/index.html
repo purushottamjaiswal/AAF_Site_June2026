@@ -2,53 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="true">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2c3e50">
     <title>BTS Site Map Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>BTS Site Map Dashboard</h1>
-            <p>Base Transceiver Station Locations & Coverage</p>
+            <h1>BTS Sites</h1>
+            <p>Coverage Map</p>
         </header>
 
         <div class="controls-section">
-            <div class="filter-group">
+            <button id="filterToggle" class="filter-toggle-btn" title="Show filters">⚙️</button>
+            
+            <div class="filter-group" id="filterGroup">
                 <div class="filter-item">
-                    <label for="opcoFilter">Filter by OPCO:</label>
+                    <select id="mapTypeSelector">
+                        <option value="2d">2D Map</option>
+                        <option value="3d">3D Map</option>
+                    </select>
+                </div>
+                <div class="filter-item">
                     <select id="opcoFilter">
                         <option value="">All OPCOs</option>
                     </select>
                 </div>
                 <div class="filter-item">
-                    <label for="techFilter">Filter by Technology:</label>
                     <select id="techFilter">
-                        <option value="">All Technologies</option>
+                        <option value="">All Tech</option>
                     </select>
                 </div>
-                <div class="filter-item">
-                    <button id="resetFilters" class="btn-reset">Reset Filters</button>
-                </div>
+                <button id="resetFilters" class="btn-reset">Reset</button>
             </div>
+            
             <div class="data-info">
-                <span id="markerCount">Total BTS Sites: 0</span>
-                <span id="filteredCount">Filtered: 0</span>
+                <span id="markerCount">0</span>
+                <span id="filteredCount">0</span>
             </div>
         </div>
 
         <div class="content-wrapper">
             <div class="map-container">
                 <div id="map"></div>
+                <div id="cesium-container" class="cesium-container" style="display: none;"></div>
                 <div id="loading" class="loading-spinner">
-                    <p>Loading BTS data from Google Sheets...</p>
+                    <p>Loading...</p>
                 </div>
             </div>
-            <div class="sidebar">
+            <div class="sidebar" id="sidebar">
                 <div class="sidebar-header">
-                    <h2>BTS Information</h2>
+                    <h2>BTS Info</h2>
+                    <button id="sidebarClose" class="sidebar-close-btn">✕</button>
                 </div>
                 <div id="siteList" class="site-list"></div>
             </div>
@@ -56,7 +65,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
