@@ -1,10 +1,10 @@
 // Configuration
 const CONFIG = {
-    SPREADSHEET_ID: '1CfG5nG9UCWtowaldd-CR-egIsgnOclflOXT08bBz5s0',
+    SPREADSHEET_ID: '1emHCg9TURpaiBueP_yusDcFAdbq3WNYbvmJigJMm90s',
     SHEET_ID: '0',
     MAP_CENTER: [20.5937, 78.9629], // India center
     MAP_ZOOM: 5,
-    API_ENDPOINT: 'https://docs.google.com/spreadsheets/d/1emHCg9TURpaiBueP_yusDcFAdbq3WNYbvmJigJMm90s/edit?usp=sharing'
+    API_ENDPOINT: 'https://docs.google.com/spreadsheets/d/{id}/export?format=csv&gid={gid}'
 };
 
 // State management
@@ -23,7 +23,7 @@ const state = {
 
 // Initialize map
 function initializeMap() {
-    state.map = L.map('map').setView(state.MAP_CENTER, CONFIG.MAP_ZOOM);
+    state.map = L.map('map').setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
     
     // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
