@@ -4,7 +4,7 @@ const CONFIG = {
     SHEET_ID: '0',
     MAP_CENTER: [20.5937, 78.9629], // India center
     MAP_ZOOM: 5,
-    API_ENDPOINT: 'https://docs.google.com/spreadsheets/d/{id}/export?format=csv&gid={gid}'
+    API_ENDPOINT: 'https://docs.google.com/spreadsheets/d/1emHCg9TURpaiBueP_yusDcFAdbq3WNYbvmJigJMm90s/edit?usp=sharing'
 };
 
 // State management
